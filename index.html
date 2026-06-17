@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#00a650">
 <title>田都こみぐあい</title>
 <link rel="manifest" href="manifest.json">
@@ -62,12 +62,6 @@
   .seg.dir button[aria-pressed="true"]{background:var(--ink); border-color:var(--ink)}
   .seg .arr{font-weight:800; margin-right:3px}
 
-  .chips{display:flex; gap:6px; overflow-x:auto; padding:2px 2px 4px; -webkit-overflow-scrolling:touch}
-  .chips button{
-    flex:0 0 auto; border:1px solid var(--line); background:var(--card); color:var(--sub);
-    padding:7px 13px; border-radius:999px; font-weight:700; font-size:.84rem; cursor:pointer; font-variant-numeric:tabular-nums;
-  }
-  .chips button[aria-pressed="true"]{background:var(--green); color:#fff; border-color:var(--green)}
 
   select{
     width:100%; font-size:1.02rem; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
@@ -117,6 +111,8 @@
   .note{font-size:.73rem; color:var(--sub); line-height:1.7}
   .src{font-size:.73rem; margin-top:10px; line-height:1.9}
   .src a{color:var(--green-d); font-weight:700}
+  .row2{display:flex; gap:10px}
+  .col2{flex:1; min-width:0}
   .hidden{display:none}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -135,18 +131,15 @@
   <!-- いま・時間帯：全駅 × 条件 -->
   <section id="viewNow">
     <div class="ctrl">
-      <div class="field">
-        <div class="lab-s">曜日</div>
-        <div class="seg" id="nowDay">
-          <button data-day="auto" aria-pressed="true">今日</button>
-          <button data-day="weekday" aria-pressed="false">平日</button>
-          <button data-day="sat" aria-pressed="false">土曜</button>
-          <button data-day="sun" aria-pressed="false">日曜・祝</button>
+      <div class="field row2">
+        <div class="col2">
+          <div class="lab-s">曜日</div>
+          <select id="nowDay"></select>
         </div>
-      </div>
-      <div class="field">
-        <div class="lab-s">時間帯</div>
-        <div class="chips" id="nowHour"></div>
+        <div class="col2">
+          <div class="lab-s">時間帯</div>
+          <select id="nowHour"></select>
+        </div>
       </div>
       <div class="field">
         <div class="lab-s">のる向き</div>
@@ -259,7 +252,7 @@ var WDAY=["日","月","火","水","木","金","土"];
 
 var state={ tab:"now", dir:"city",
   now:{day:"auto", hour:"auto"},
-  tbl:{stn:14, day:"weekday", dir:"city"},
+  tbl:{stn:11, day:"weekday", dir:"city"},
   rainy:false, wxText:"" };
 
 function dayTypeNow(d){var k=d.getDay();return k===0?"sun":(k===6?"sat":"weekday");}
@@ -366,16 +359,22 @@ function segHandler(container, onPick){
 }
 
 function init(){
-  // 時間帯チップ
-  var chips=document.getElementById("nowHour");
-  var opts=["auto"]; for(var h=5;h<=24;h++) opts.push(h);
-  opts.forEach(function(v){
-    var b=document.createElement("button");
-    b.dataset.hour=v; b.textContent=(v==="auto")?"今":((v===24?24:v)+"時");
-    b.setAttribute("aria-pressed", v==="auto"?"true":"false");
-    chips.appendChild(b);
+  // いま画面：曜日プルダウン
+  var nowDaySel=document.getElementById("nowDay");
+  [{v:"auto",t:"今日"},{v:"weekday",t:"平日"},{v:"sat",t:"土曜"},{v:"sun",t:"日曜・祝"}].forEach(function(o){
+    var opt=document.createElement("option"); opt.value=o.v; opt.textContent=o.t;
+    if(o.v==="auto") opt.selected=true; nowDaySel.appendChild(opt);
   });
-  segHandler(chips, function(b){ state.now.hour=(b.dataset.hour==="auto")?"auto":parseInt(b.dataset.hour,10); renderNow(); });
+  nowDaySel.addEventListener("change", function(){ state.now.day=this.value; renderNow(); });
+
+  // いま画面：時間帯プルダウン
+  var nowHourSel=document.getElementById("nowHour");
+  var hourOpts=[{v:"auto",t:"今"}]; for(var h=5;h<=24;h++) hourOpts.push({v:h,t:(h===24?24:h)+"時"});
+  hourOpts.forEach(function(o){
+    var opt=document.createElement("option"); opt.value=o.v; opt.textContent=o.t;
+    if(o.v==="auto") opt.selected=true; nowHourSel.appendChild(opt);
+  });
+  nowHourSel.addEventListener("change", function(){ state.now.hour=(this.value==="auto")?"auto":parseInt(this.value,10); renderNow(); });
 
   // 駅セレクト
   var sel=document.getElementById("stnSel");
@@ -385,8 +384,7 @@ function init(){
   });
   sel.addEventListener("change", function(){ state.tbl.stn=parseInt(this.value,10); renderTable(); });
 
-  // 曜日・方向（いま）
-  segHandler(document.getElementById("nowDay"), function(b){ state.now.day=b.dataset.day; renderNow(); });
+  // 方向（いま）
   segHandler(document.getElementById("nowDir"), function(b){ state.dir=b.dataset.dir; renderNow(); });
   // 曜日・方向（駅で見る）
   segHandler(document.getElementById("tblDay"), function(b){ state.tbl.day=b.dataset.day; renderTable(); });
