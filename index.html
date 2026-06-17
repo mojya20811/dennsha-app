@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#00a650">
+<title>田都こみぐあい</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="田都こみぐあい">
+<style>
+  :root{
+    --green:#00a650; --green-d:#007a3d;
+    --bg:#f4f7f5; --card:#ffffff; --line:#e3e8e5;
+    --ink:#16241d; --sub:#5d6b64;
+    --empty:#2f74e0;   /* すいてる 青 */
+    --normal:#ef8d2a;  /* ふつう  橙 */
+    --crowd:#d83b30;   /* 混んでる 赤 */
+    --empty-bg:#e9f1fd; --normal-bg:#fdf1e3; --crowd-bg:#fbeae8;
+    --shadow:0 1px 3px rgba(20,40,30,.08),0 1px 2px rgba(20,40,30,.06);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",Meiryo,sans-serif;
+    background:var(--bg); color:var(--ink);
+    line-height:1.5; font-size:16px;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  header{
+    background:var(--green); color:#fff;
+    padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
+    position:sticky; top:0; z-index:20;
+  }
+  .h-row{display:flex; align-items:baseline; justify-content:space-between; gap:10px}
+  .h-title{font-size:1.15rem; font-weight:800; letter-spacing:.02em}
+  .h-title small{font-weight:600; opacity:.85; font-size:.72rem; margin-left:6px}
+  .h-now{font-size:.82rem; opacity:.95; margin-top:2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .wx{display:inline-flex; align-items:center; gap:4px}
+  .rain-badge{
+    background:#fff; color:var(--green-d); font-weight:800;
+    font-size:.7rem; padding:2px 8px; border-radius:999px;
+  }
+  main{max-width:560px; margin:0 auto; padding:14px}
+
+  /* 方向トグル */
+  .dir{
+    display:flex; background:var(--card); border:1px solid var(--line);
+    border-radius:12px; overflow:hidden; box-shadow:var(--shadow); margin-bottom:12px;
+  }
+  .dir button{
+    flex:1; border:0; background:transparent; padding:11px 8px; font-size:.92rem;
+    font-weight:700; color:var(--sub); cursor:pointer; transition:background .15s,color .15s;
+  }
+  .dir button .arr{font-weight:800; margin-right:4px}
+  .dir button[aria-pressed="true"]{background:var(--green); color:#fff}
+
+  /* タブ */
+  .tabs{display:flex; gap:8px; margin-bottom:14px}
+  .tabs button{
+    flex:1; border:1px solid var(--line); background:var(--card); color:var(--sub);
+    padding:10px; border-radius:11px; font-weight:700; font-size:.92rem; cursor:pointer;
+    box-shadow:var(--shadow);
+  }
+  .tabs button[aria-selected="true"]{background:var(--ink); color:#fff; border-color:var(--ink)}
+
+  /* 凡例 */
+  .legend{display:flex; gap:14px; justify-content:center; margin:2px 0 14px; flex-wrap:wrap}
+  .legend span{display:inline-flex; align-items:center; gap:6px; font-size:.8rem; color:var(--sub)}
+  .dot{width:13px; height:13px; border-radius:50%; display:inline-block}
+  .dot.e{background:var(--empty)} .dot.n{background:var(--normal)} .dot.c{background:var(--crowd)}
+
+  /* 路線図 */
+  .map{background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:6px 4px 10px}
+  .stn{display:flex; align-items:center; gap:12px; padding:0 14px; position:relative; min-height:46px}
+  .rail{position:relative; width:24px; flex:none; align-self:stretch; display:flex; justify-content:center}
+  .rail::before{content:""; position:absolute; top:0; bottom:0; width:4px; background:var(--green); border-radius:2px}
+  .stn:first-child .rail::before{top:50%}
+  .stn:last-child .rail::before{bottom:50%}
+  .node{
+    position:relative; z-index:2; width:18px; height:18px; border-radius:50%;
+    border:3px solid #fff; box-shadow:0 0 0 1.5px var(--line); align-self:center;
+    transition:background .2s;
+  }
+  .node.e{background:var(--empty); box-shadow:0 0 0 1.5px var(--empty)}
+  .node.n{background:var(--normal); box-shadow:0 0 0 1.5px var(--normal)}
+  .node.c{background:var(--crowd); box-shadow:0 0 0 1.5px var(--crowd)}
+  .node.ex{width:22px; height:22px}
+  .s-body{flex:1; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid var(--line)}
+  .stn:last-child .s-body{border-bottom:0}
+  .s-name{font-weight:700; font-size:.98rem}
+  .s-name .ex-tag{font-size:.62rem; color:var(--green-d); border:1px solid var(--green); border-radius:5px; padding:0 4px; margin-left:6px; vertical-align:1px; font-weight:700}
+  .s-lab{font-size:.82rem; font-weight:800; padding:3px 10px; border-radius:999px; white-space:nowrap}
+  .s-lab.e{color:var(--empty); background:var(--empty-bg)}
+  .s-lab.n{color:var(--normal); background:var(--normal-bg)}
+  .s-lab.c{color:var(--crowd); background:var(--crowd-bg)}
+
+  /* 時間帯表 */
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:14px}
+  .field{margin-bottom:12px}
+  .field label{display:block; font-size:.78rem; color:var(--sub); font-weight:700; margin-bottom:6px}
+  select{
+    width:100%; font-size:1rem; padding:11px 12px; border-radius:11px; border:1px solid var(--line);
+    background:var(--bg); color:var(--ink); font-family:inherit; font-weight:700;
+  }
+  .seg{display:flex; gap:6px}
+  .seg button{
+    flex:1; border:1px solid var(--line); background:var(--bg); color:var(--sub);
+    padding:9px 6px; border-radius:10px; font-weight:700; font-size:.86rem; cursor:pointer;
+  }
+  .seg button[aria-pressed="true"]{background:var(--green); color:#fff; border-color:var(--green)}
+  .grid{margin-top:14px}
+  .row{display:grid; grid-template-columns:54px 1fr 78px; align-items:center; gap:10px; padding:4px 0}
+  .row .t{font-size:.82rem; color:var(--sub); font-weight:700; font-variant-numeric:tabular-nums; text-align:right}
+  .bar{height:20px; border-radius:6px}
+  .bar.e{background:var(--empty)} .bar.n{background:var(--normal)} .bar.c{background:var(--crowd)}
+  .row.nowrow{background:var(--empty-bg); border-radius:8px}
+  .row .lab{font-size:.76rem; font-weight:800; text-align:left}
+  .row .lab.e{color:var(--empty)} .row .lab.n{color:var(--normal)} .row .lab.c{color:var(--crowd)}
+  .nowtag{font-size:.62rem; background:var(--ink); color:#fff; padding:1px 6px; border-radius:6px; margin-left:6px}
+
+  .note{font-size:.74rem; color:var(--sub); margin:16px 4px 30px; text-align:center; line-height:1.7}
+  .hidden{display:none}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="h-row">
+    <div class="h-title">田都こみぐあい<small>田園都市線のめやす</small></div>
+  </div>
+  <div class="h-now" id="hNow">読み込み中…</div>
+</header>
+
+<main>
+  <div class="dir" id="dir">
+    <button data-dir="city" aria-pressed="true"><span class="arr">↑</span>渋谷方面</button>
+    <button data-dir="suburb" aria-pressed="false"><span class="arr">↓</span>中央林間方面</button>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button data-tab="now" aria-selected="true">いま</button>
+    <button data-tab="table" aria-selected="false">時間帯表</button>
+  </div>
+
+  <div class="legend">
+    <span><i class="dot e"></i>すいてる</span>
+    <span><i class="dot n"></i>ふつう</span>
+    <span><i class="dot c"></i>混んでる</span>
+  </div>
+
+  <!-- いま -->
+  <section id="viewNow">
+    <div class="map" id="map"></div>
+  </section>
+
+  <!-- 時間帯表 -->
+  <section id="viewTable" class="hidden">
+    <div class="panel">
+      <div class="field">
+        <label for="stnSel">駅をえらぶ</label>
+        <select id="stnSel"></select>
+      </div>
+      <div class="field">
+        <label>曜日</label>
+        <div class="seg" id="daySeg">
+          <button data-day="weekday" aria-pressed="true">平日</button>
+          <button data-day="sat" aria-pressed="false">土曜</button>
+          <button data-day="sun" aria-pressed="false">日曜・祝</button>
+        </div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </section>
+
+  <p class="note" id="note">
+    ※ 公式の混雑統計や運転本数をもとにした「めやす」です。実測の中継ではありません。<br>
+    遅延・イベント・天候などで実際とずれることがあります。
+  </p>
+</main>
+
+<script>
+/* ===== 駅データ（渋谷=0 … 中央林間=26） ===== */
+var STATIONS = [
+  {n:"渋谷", ex:true,  com:true },
+  {n:"池尻大橋", ex:false, com:false},
+  {n:"三軒茶屋", ex:true,  com:true },
+  {n:"駒沢大学", ex:false, com:false},
+  {n:"桜新町", ex:false, com:false},
+  {n:"用賀", ex:false, com:false},
+  {n:"二子玉川", ex:true,  com:true },
+  {n:"二子新地", ex:false, com:false},
+  {n:"高津", ex:false, com:false},
+  {n:"溝の口", ex:true,  com:true },
+  {n:"梶が谷", ex:false, com:false},
+  {n:"宮崎台", ex:false, com:false},
+  {n:"宮前平", ex:false, com:false},
+  {n:"鷺沼", ex:true,  com:false},
+  {n:"たまプラーザ", ex:true,  com:true },
+  {n:"あざみ野", ex:true,  com:false},
+  {n:"江田", ex:false, com:false},
+  {n:"市が尾", ex:false, com:false},
+  {n:"藤が丘", ex:false, com:false},
+  {n:"青葉台", ex:true,  com:true },
+  {n:"田奈", ex:false, com:false},
+  {n:"長津田", ex:true,  com:false},
+  {n:"つくし野", ex:false, com:false},
+  {n:"すずかけ台", ex:false, com:false},
+  {n:"南町田グランベリーパーク", ex:true,  com:true },
+  {n:"つきみ野", ex:false, com:false},
+  {n:"中央林間", ex:true,  com:false}
+];
+var LAST = STATIONS.length - 1;
+
+/* ===== 時間帯カーブ（5時〜24時=0時） ===== */
+var WEEKDAY = {5:.15,6:.45,7:.90,8:1.0,9:.72,10:.48,11:.34,12:.40,13:.34,14:.32,15:.40,16:.50,17:.68,18:.92,19:.82,20:.58,21:.48,22:.38,23:.28,24:.18};
+var WEEKEND = {5:.08,6:.12,7:.18,8:.28,9:.42,10:.56,11:.62,12:.64,13:.62,14:.60,15:.60,16:.58,17:.56,18:.52,19:.46,20:.38,21:.30,22:.24,23:.18,24:.10};
+
+/* 方向係数：平日は朝=都心方面が混む／夕=郊外方面が混む */
+function dirFactor(dayType, hour, dir){
+  if(dayType === "weekday"){
+    if(hour >= 6 && hour <= 9)  return dir === "city"   ? 1.18 : 0.50;
+    if(hour >= 17 && hour <= 20) return dir === "suburb" ? 1.18 : 0.55;
+    return 0.85;
+  }
+  return 0.95; // 土日は方向の偏り小
+}
+
+/* 混雑スコア → 0:すいてる 1:ふつう 2:混んでる */
+function calcLevel(idx, dir, dayType, hour, rainy){
+  var st = STATIONS[idx];
+  var curve = (dayType === "weekday") ? WEEKDAY : WEEKEND;
+  var base = curve[hour] || 0.1;
+  if(dayType === "sat") base *= 1.05;
+  var df = dirFactor(dayType, hour, dir);
+  // 都心寄りほど混む（渋谷=1.0 … 中央林間=0.45）
+  var pos = 0.45 + 0.55 * (1 - idx / LAST);
+  var score = base * df * pos;
+  if(st.ex) score += 0.06;                         // 急行停車駅
+  if(dayType !== "weekday" && st.com) score += 0.14 * base; // 土日の商業駅
+  if(rainy) score += 0.12;                          // 雨補正
+  if(score < 0.40) return 0;
+  if(score < 0.70) return 1;
+  return 2;
+}
+
+var LV = ["e","n","c"];
+var LV_TXT = ["すいてる","ふつう","混んでる"];
+
+/* ===== 状態 ===== */
+var state = { dir:"city", tab:"now", day:"weekday", stn:14, rainy:false, wxText:"" };
+
+function dayTypeNow(d){ var k=d.getDay(); return k===0?"sun":(k===6?"sat":"weekday"); }
+function fmtNow(d){
+  var w=["日","月","火","水","木","金","土"][d.getDay()];
+  var h=d.getHours(), m=d.getMinutes();
+  return (d.getMonth()+1)+"/"+d.getDate()+"（"+w+"）"+h+":"+(m<10?"0":"")+m;
+}
+
+/* ===== 描画：いま ===== */
+function renderNow(){
+  var now = new Date();
+  var dt = dayTypeNow(now);
+  var hour = now.getHours(); if(hour < 5) hour = 24; // 0〜4時は深夜帯としてまとめ
+  var map = document.getElementById("map");
+  map.innerHTML = "";
+  STATIONS.forEach(function(st, i){
+    var lv = calcLevel(i, state.dir, dt, hour===0?24:hour, state.rainy);
+    var row = document.createElement("div");
+    row.className = "stn";
+    row.innerHTML =
+      '<div class="rail"><div class="node '+LV[lv]+(st.ex?' ex':'')+'"></div></div>'+
+      '<div class="s-body">'+
+        '<div class="s-name">'+st.n+(st.ex?'<span class="ex-tag">急行</span>':'')+'</div>'+
+        '<div class="s-lab '+LV[lv]+'">'+LV_TXT[lv]+'</div>'+
+      '</div>';
+    map.appendChild(row);
+  });
+}
+
+/* ===== 描画：時間帯表 ===== */
+function renderTable(){
+  var grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  var now = new Date();
+  var isToday = (dayTypeNow(now) === state.day) ||
+                (state.day==="sun" && now.getDay()===0) ||
+                (state.day==="sat" && now.getDay()===6);
+  var nowHour = now.getHours(); if(nowHour < 5) nowHour = 24;
+  var hours = [];
+  for(var h=5; h<=23; h++) hours.push(h);
+  hours.push(24);
+  hours.forEach(function(h){
+    var lv = calcLevel(state.stn, state.dir, state.day, h, state.rainy);
+    var label = (h===24?"24":h)+"時";
+    var isNow = isToday && (h===nowHour || (h===24 && nowHour===24));
+    var row = document.createElement("div");
+    row.className = "row" + (isNow ? " nowrow" : "");
+    row.innerHTML =
+      '<div class="t">'+label+'</div>'+
+      '<div class="bar '+LV[lv]+'"></div>'+
+      '<div class="lab '+LV[lv]+'">'+LV_TXT[lv]+(isNow?'<span class="nowtag">今</span>':'')+'</div>';
+    grid.appendChild(row);
+  });
+}
+
+function render(){
+  document.getElementById("viewNow").classList.toggle("hidden", state.tab!=="now");
+  document.getElementById("viewTable").classList.toggle("hidden", state.tab!=="table");
+  if(state.tab==="now") renderNow(); else renderTable();
+}
+
+/* ===== 現在時刻・天気の表示 ===== */
+function updateHeader(){
+  var now = new Date();
+  var el = document.getElementById("hNow");
+  var wx = state.wxText ? '<span class="wx">'+state.wxText+'</span>' : '';
+  var rain = state.rainy ? '<span class="rain-badge">雨で1段階up中</span>' : '';
+  el.innerHTML = fmtNow(now) + (wx?' ・ '+wx:'') + ' ' + rain;
+}
+
+/* Open-Meteo（APIキー不要）。たまプラーザ付近の天気で雨判定 */
+function loadWeather(){
+  var url = "https://api.open-meteo.com/v1/forecast?latitude=35.5667&longitude=139.5667&current=precipitation,weather_code&timezone=Asia%2FTokyo";
+  fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    var c = d.current || {};
+    var code = c.weather_code;
+    var prec = c.precipitation;
+    var rainCodes = [51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99];
+    var rainy = (prec && prec > 0) || rainCodes.indexOf(code) !== -1;
+    state.rainy = !!rainy;
+    state.wxText = rainy ? "☔ 雨" : "☀ 晴れ/くもり";
+    updateHeader(); render();
+  }).catch(function(){
+    state.wxText = "天気は取得できず";
+    updateHeader();
+  });
+}
+
+/* ===== 初期化 ===== */
+function init(){
+  // 駅セレクト
+  var sel = document.getElementById("stnSel");
+  STATIONS.forEach(function(st,i){
+    var o=document.createElement("option"); o.value=i; o.textContent=st.n;
+    if(i===state.stn) o.selected=true; sel.appendChild(o);
+  });
+  sel.addEventListener("change", function(){ state.stn=parseInt(this.value,10); renderTable(); });
+
+  // 方向
+  document.getElementById("dir").addEventListener("click", function(e){
+    var b=e.target.closest("button"); if(!b) return;
+    state.dir=b.dataset.dir;
+    [].forEach.call(this.querySelectorAll("button"), function(x){
+      x.setAttribute("aria-pressed", x===b ? "true":"false");
+    });
+    render();
+  });
+
+  // タブ
+  document.getElementById("tabs").addEventListener("click", function(e){
+    var b=e.target.closest("button"); if(!b) return;
+    state.tab=b.dataset.tab;
+    [].forEach.call(this.querySelectorAll("button"), function(x){
+      x.setAttribute("aria-selected", x===b ? "true":"false");
+    });
+    render();
+  });
+
+  // 曜日
+  document.getElementById("daySeg").addEventListener("click", function(e){
+    var b=e.target.closest("button"); if(!b) return;
+    state.day=b.dataset.day;
+    [].forEach.call(this.querySelectorAll("button"), function(x){
+      x.setAttribute("aria-pressed", x===b ? "true":"false");
+    });
+    renderTable();
+  });
+
+  updateHeader();
+  render();
+  loadWeather();
+  setInterval(updateHeader, 60000);
+}
+document.addEventListener("DOMContentLoaded", init);
+
+/* Service Worker（オフライン起動） */
+if("serviceWorker" in navigator){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
